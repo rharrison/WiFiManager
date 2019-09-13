@@ -794,8 +794,8 @@ bool WiFiManager::wifiConnectNew(String ssid, String pass){
  */
 bool WiFiManager::wifiConnectDefault(){
   bool ret = false;
-  DEBUG_WM(F("Connecting to saved AP:"),WiFi_SSID());
-  DEBUG_WM(DEBUG_DEV,F("Using Password:"),WiFi.psk());
+  DEBUG_WM(F("Connecting to saved AP:"),WiFi_SSID(true));
+  DEBUG_WM(DEBUG_DEV,F("Using Password:"),WiFi_psk(true));
   ret = WiFi_enableSTA(true,storeSTAmode);
   if(!ret) DEBUG_WM(DEBUG_ERROR,"[ERROR] wifi enableSta failed");
   ret = WiFi.begin();
@@ -2371,8 +2371,28 @@ void WiFiManager::setCountry(String cc){
 void WiFiManager::setClass(String str){
   _bodyClass = str;
 }
-  
+
 // HELPERS
+
+/**
+ * getWiFiSSID
+ * @since $dev
+ * @param bool persistent
+ * @return String
+ */
+String WiFiManager::getWiFiSSID(bool persistent){
+  return WiFi_SSID(persistent);
+}
+
+/**
+ * getWiFiPass
+ * @since $dev
+ * @param bool persistent
+ * @return String
+ */
+String WiFiManager::getWiFiPass(bool persistent){
+  return WiFi_psk(persistent);
+} 
 
 // DEBUG
 // @todo fix DEBUG_WM(0,0);
@@ -2671,18 +2691,61 @@ uint8_t WiFiManager::WiFi_softap_num_stations(){
 }
 
 bool WiFiManager::WiFi_hasAutoConnect(){
-  return WiFi_SSID() != "";
+  return WiFi_SSID(true) != "";
 }
 
-String WiFiManager::WiFi_SSID(){
-  #ifdef ESP8266
-    return WiFi.SSID();
-  #elif defined(ESP32)
-    //@todo , workaround only when not connected
+String WiFiManager::WiFi_SSID(bool persistent) const{
+
+    #ifdef ESP8266
+    struct station_config conf;
+    if(persistent) wifi_station_get_config_default(&conf);
+    else wifi_station_get_config(&conf);
+
+    char tmp[33]; //ssid can be up to 32chars, => plus null term
+    memcpy(tmp, conf.ssid, sizeof(conf.ssid));
+    tmp[32] = 0; //nullterm in case of 32 char ssid
+    return String(reinterpret_cast<char*>(tmp));
+    
+    #elif defined(ESP32)
+    if(persistent){
+      wifi_config_t conf;
+      esp_wifi_get_config(WIFI_IF_STA, &conf);
+      return String(reinterpret_cast<const char*>(conf.sta.ssid));
+    }
+    else {
+      if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+          return String();
+      }
+      wifi_ap_record_t info;
+      if(!esp_wifi_sta_get_ap_info(&info)) {
+          return String(reinterpret_cast<char*>(info.ssid));
+      }
+      return String();
+    }
+    #endif
+}
+
+String WiFiManager::WiFi_psk(bool persistent) const {
+    #ifdef ESP8266
+    struct station_config conf;
+
+    if(persistent) wifi_station_get_config_default(&conf);
+    else wifi_station_get_config(&conf);
+
+    char tmp[65]; //psk is 64 bytes hex => plus null term
+    memcpy(tmp, conf.password, sizeof(conf.password));
+    tmp[64] = 0; //null term in case of 64 byte psk
+    return String(reinterpret_cast<char*>(tmp));
+    
+    #elif defined(ESP32)
+    // only if wifi is init
+    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+      return String();
+    }
     wifi_config_t conf;
     esp_wifi_get_config(WIFI_IF_STA, &conf);
-    return String(reinterpret_cast<const char*>(conf.sta.ssid));
-  #endif
+    return String(reinterpret_cast<char*>(conf.sta.password));
+    #endif
 }
 
 #ifdef ESP32
