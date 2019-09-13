@@ -255,6 +255,9 @@ class WiFiManager
     bool          setHostname(const char * hostname);
     // show erase wifi onfig button on info page, true
     void          setShowInfoErase(boolean enabled);
+    // set ap channel
+    void          setWiFiAPChannel(int32_t channel);
+
     // set custom menu
 
     // set custom menu items and order
@@ -284,7 +287,8 @@ class WiFiManager
     void          setCountry(String cc);
     // set body class (invert)
     void          setClass(String str);
-
+    String        getDefaultAPName();
+    
     std::unique_ptr<DNSServer>        dnsServer;
 
     #if defined(ESP32) && defined(WM_WEBSERVERSHIM)
@@ -333,7 +337,8 @@ class WiFiManager
    
     bool          _disableSTA             = false; // disable sta when starting ap, always
     bool          _disableSTAConn         = true;  // disable sta when starting ap, if sta is not connected ( stability )
-    bool          _channelSync            = false; // use wifi channel when starting ap
+    bool          _channelSync            = false; // use same wifi sta channel when starting ap
+    int32_t       _apChannel              = 0; // channel to use for ap
 
     #ifdef ESP32
     static uint8_t _lastconxresulttmp; // tmp var for esp32 callback
@@ -366,6 +371,8 @@ class WiFiManager
 
     // internal options
     boolean       _preloadwifiscan        = true;  // preload wifiscan if true
+    boolean       _asyncScan              = false;
+    unsigned int  _scancachetime          = 30000; // ms cache time for background scans
     boolean       _disableIpFields        = false; // modify function of setShow_X_Fields(false), forces ip fields off instead of default show if set, eg. _staShowStaticFields=-1
 
     String        _wificountry            = "";  // country code, @todo define in strings lang
