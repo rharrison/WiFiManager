@@ -771,7 +771,7 @@ uint8_t WiFiManager::connectWifi(String ssid, String pass) {
     i++;
   }
   
-  while (connRes != WL_CONNECTED && i <= 2);
+  while (connRes != WL_CONNECTED && i <= 3);
 
   return connRes;
 }
