@@ -713,48 +713,57 @@ uint8_t WiFiManager::connectWifi(String ssid, String pass) {
 
   setSTAConfig();
   //@todo catch failures in set_config
+  int i=1;
+  do {
+
+    DEBUG_WM(DEBUG_VERBOSE,F("Attempt:"), String(i));
   
-  // make sure sta is on before `begin` so it does not call enablesta->mode while persistent is ON ( which would save WM AP state to eeprom !)
-  if(_cleanConnect) WiFi_Disconnect(); // disconnect before begin, in case anything is hung, this causes a 2 seconds delay for connect
-  // @todo find out what status is when this is needed, can we detect it and handle it, say in between states or idle_status
+    // make sure sta is on before `begin` so it does not call enablesta->mode while persistent is ON ( which would save WM AP state to eeprom !)
+    if(_cleanConnect) WiFi_Disconnect(); // disconnect before begin, in case anything is hung, this causes a 2 seconds delay for connect
+    // @todo find out what status is when this is needed, can we detect it and handle it, say in between states or idle_status
 
-  // if ssid argument provided connect to that
-  if (ssid != "") {
-    wifiConnectNew(ssid,pass);
-    if(_saveTimeout > 0){
-      connRes = waitForConnectResult(_saveTimeout); // use default save timeout for saves to prevent bugs in esp->waitforconnectresult loop
-    }  
-    else {
-       connRes = waitForConnectResult(0);
-    }
-  }
-  else {
-    // connect using saved ssid if there is one
-    if (WiFi_hasAutoConnect()) {
-      wifiConnectDefault();
-      connRes = waitForConnectResult();
+    // if ssid argument provided connect to that
+    if (ssid != "") {
+      wifiConnectNew(ssid,pass);
+      if(_saveTimeout > 0){
+        connRes = waitForConnectResult(_saveTimeout); // use default save timeout for saves to prevent bugs in esp->waitforconnectresult loop
+      }  
+      else {
+         connRes = waitForConnectResult(0);
+      }
     }
     else {
-      DEBUG_WM(F("No saved credentials, skipping wifi"));
+      // connect using saved ssid if there is one
+      if (WiFi_hasAutoConnect()) {
+        wifiConnectDefault();
+        connRes = waitForConnectResult();
+      }
+      else {
+        DEBUG_WM(F("No saved credentials, skipping wifi"));
+      }
     }
-  }
 
-  DEBUG_WM(DEBUG_VERBOSE,F("Connection result:"),getWLStatusString(connRes));
+    DEBUG_WM(DEBUG_VERBOSE,F("Connection result:"),getWLStatusString(connRes));
 
-// WPS enabled? https://github.com/esp8266/Arduino/pull/4889
-#ifdef NO_EXTRA_4K_HEAP
-  // do WPS, if WPS options enabled and not connected and no password was supplied
-  // @todo this seems like wrong place for this, is it a fallback or option?
-  if (_tryWPS && connRes != WL_CONNECTED && pass == "") {
-    startWPS();
-    // should be connected at the end of WPS
-    connRes = waitForConnectResult();
-  }
-#endif
+    // WPS enabled? https://github.com/esp8266/Arduino/pull/4889
+    #ifdef NO_EXTRA_4K_HEAP
+      // do WPS, if WPS options enabled and not connected and no password was supplied
+      // @todo this seems like wrong place for this, is it a fallback or option?
+      if (_tryWPS && connRes != WL_CONNECTED && pass == "") {
+        startWPS();
+        // should be connected at the end of WPS
+        connRes = waitForConnectResult();
+      }
+    #endif
 
-  if(connRes != WL_SCAN_COMPLETED){
-    updateConxResult(connRes);
+    if(connRes != WL_SCAN_COMPLETED){
+        updateConxResult(connRes);
+    }
+
+    i++;
   }
+  
+  while (connRes != WL_CONNECTED && i <= 2);
 
   return connRes;
 }
